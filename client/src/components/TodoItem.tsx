@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Confetti } from "@/components/Confetti";
+import { playCheeringSound } from "@/lib/soundEffects";
 
 interface TodoItemProps {
   todo: Todo;
@@ -20,6 +21,7 @@ export function TodoItem({ todo }: TodoItemProps) {
   const handleToggle = () => {
     if (!todo.completed) {
       setShowConfetti(true);
+      playCheeringSound();
     }
     updateTodo.mutate({ id: todo.id, completed: !todo.completed });
   };
