@@ -89,7 +89,7 @@ export function useDeleteTodo() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async ({ id, todo }: { id: number; todo: Todo }) => {
       const url = buildUrl(api.todos.delete.path, { id });
       const res = await fetch(url, {
         method: api.todos.delete.method,
@@ -100,12 +100,53 @@ export function useDeleteTodo() {
         if (res.status === 404) throw new Error("Todo not found");
         throw new Error("Failed to delete todo");
       }
+      return todo;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.todos.list.path] });
-      toast({ description: "Task deleted" });
+    onMutate: async ({ id }) => {
+      // Optimistically remove the todo from the UI
+      await queryClient.cancelQueries({ queryKey: [api.todos.list.path] });
+      const previousTodos = queryClient.getQueryData<Todo[]>([api.todos.list.path]);
+      
+      if (previousTodos) {
+        queryClient.setQueryData(
+          [api.todos.list.path],
+          previousTodos.filter((t) => t.id !== id)
+        );
+      }
+      
+      return { previousTodos, id };
     },
-    onError: (error) => {
+    onSuccess: (_, { todo }) => {
+      const { dismiss } = toast({
+        description: "Task deleted",
+        action: {
+          label: "Undo",
+          onClick: () => {
+            dismiss();
+            // Restore the todo
+            const todos = queryClient.getQueryData<Todo[]>([api.todos.list.path]) || [];
+            queryClient.setQueryData([api.todos.list.path], [...todos, todo]);
+            
+            // Recreate the todo on the server
+            fetch(api.todos.create.path, {
+              method: api.todos.create.method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(todo),
+              credentials: "include",
+            }).catch(() => {
+              // If restore fails, just keep it in the UI
+            });
+          },
+        },
+        duration: 2500,
+      });
+    },
+    onError: (error, _, context) => {
+      // Restore the previous todos on error
+      if (context?.previousTodos) {
+        queryClient.setQueryData([api.todos.list.path], context.previousTodos);
+      }
+      
       toast({
         title: "Error",
         description: error.message,

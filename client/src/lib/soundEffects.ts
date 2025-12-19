@@ -31,3 +31,35 @@ export function playCheeringSound() {
     // Silently fail if audio context is not available
   }
 }
+
+export function playDeleteSound() {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const now = audioContext.currentTime;
+
+    // Create a descending "delete" sound effect
+    const notes = [
+      { freq: 400, start: 0, duration: 0.15 },   // Lower note
+      { freq: 250, start: 0.15, duration: 0.2 }, // Even lower note
+    ];
+
+    notes.forEach(({ freq, start, duration }) => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+
+      osc.frequency.setValueAtTime(freq, now + start);
+      osc.type = "sine";
+
+      gain.gain.setValueAtTime(0.2, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + start + duration);
+
+      osc.start(now + start);
+      osc.stop(now + start + duration);
+    });
+  } catch (e) {
+    // Silently fail if audio context is not available
+  }
+}

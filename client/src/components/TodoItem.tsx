@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Confetti } from "@/components/Confetti";
-import { playCheeringSound } from "@/lib/soundEffects";
+import { playCheeringSound, playDeleteSound } from "@/lib/soundEffects";
 
 interface TodoItemProps {
   todo: Todo;
@@ -27,7 +27,8 @@ export function TodoItem({ todo }: TodoItemProps) {
   };
 
   const handleDelete = () => {
-    deleteTodo.mutate(todo.id);
+    playDeleteSound();
+    deleteTodo.mutate({ id: todo.id, todo });
   };
 
   return (
