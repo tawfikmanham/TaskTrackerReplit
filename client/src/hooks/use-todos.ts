@@ -3,6 +3,9 @@ import { api, buildUrl } from "@shared/routes";
 import { type InsertTodo, type Todo } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
+// Store for managing deletions with undo
+let lastDeletedTodo: Todo | null = null;
+
 export function useTodos() {
   return useQuery({
     queryKey: [api.todos.list.path],
@@ -117,27 +120,9 @@ export function useDeleteTodo() {
       return { previousTodos, id };
     },
     onSuccess: (_, { todo }) => {
-      const { dismiss } = toast({
+      lastDeletedTodo = todo;
+      toast({
         description: "Task deleted",
-        action: {
-          label: "Undo",
-          onClick: () => {
-            dismiss();
-            // Restore the todo
-            const todos = queryClient.getQueryData<Todo[]>([api.todos.list.path]) || [];
-            queryClient.setQueryData([api.todos.list.path], [...todos, todo]);
-            
-            // Recreate the todo on the server
-            fetch(api.todos.create.path, {
-              method: api.todos.create.method,
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(todo),
-              credentials: "include",
-            }).catch(() => {
-              // If restore fails, just keep it in the UI
-            });
-          },
-        },
         duration: 2500,
       });
     },
