@@ -1,19 +1,57 @@
-import { useState } from "react";
-import { useTodos, useCreateTodo } from "@/hooks/use-todos";
+import { useState, useEffect } from "react";
+import { useTodos, useCreateTodo, setUndoDeleteCallback } from "@/hooks/use-todos";
+import { type Todo } from "@shared/schema";
 import { TodoItem } from "@/components/TodoItem";
-import { Plus, ListTodo, CheckCircle2, Circle } from "lucide-react";
+import { Plus, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToastAction } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@shared/routes";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Filter = "all" | "active" | "completed";
 
 export default function Home() {
   const { data: todos, isLoading, error } = useTodos();
   const createTodo = useCreateTodo();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [newTodoText, setNewTodoText] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+
+  useEffect(() => {
+    setUndoDeleteCallback((deletedTodo: Todo) => {
+      toast({
+        description: "Task deleted",
+        duration: 250,
+        action: (
+          <ToastAction
+            altText="Undo delete"
+            onClick={() => {
+              // Restore the todo
+              const todos = queryClient.getQueryData<Todo[]>([api.todos.list.path]) || [];
+              queryClient.setQueryData([api.todos.list.path], [...todos, deletedTodo]);
+              
+              // Recreate the todo on the server
+              fetch(api.todos.create.path, {
+                method: api.todos.create.method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(deletedTodo),
+                credentials: "include",
+              }).catch(() => {
+                // If restore fails, just keep it in the UI
+              });
+            }}
+          >
+            Undo
+          </ToastAction>
+        ) as any,
+      });
+    });
+  }, [toast, queryClient]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

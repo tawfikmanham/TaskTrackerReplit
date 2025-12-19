@@ -3,8 +3,12 @@ import { api, buildUrl } from "@shared/routes";
 import { type InsertTodo, type Todo } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-// Store for managing deletions with undo
-let lastDeletedTodo: Todo | null = null;
+// Callback for handling undo
+let onUndoDelete: ((todo: Todo) => void) | null = null;
+
+export function setUndoDeleteCallback(callback: (todo: Todo) => void) {
+  onUndoDelete = callback;
+}
 
 export function useTodos() {
   return useQuery({
@@ -120,11 +124,9 @@ export function useDeleteTodo() {
       return { previousTodos, id };
     },
     onSuccess: (_, { todo }) => {
-      lastDeletedTodo = todo;
-      toast({
-        description: "Task deleted",
-        duration: 2500,
-      });
+      if (onUndoDelete) {
+        onUndoDelete(todo);
+      }
     },
     onError: (error, _, context) => {
       // Restore the previous todos on error
